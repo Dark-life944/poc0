@@ -139,7 +139,7 @@ function trigger(type) {
 
     let sample = BigInt(addrof({}).toString());
     if (sample >= 0x200000000 || sample < 0x100000000) {
-        // alert('failed');
+        alert('failed');
         location.reload();
         return;
     } else {
