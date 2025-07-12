@@ -96,7 +96,9 @@ function trigger(type) {
         success = true;
     }
     if (!success) {
-        document.getElementById("status").innerHTML = "Exploit failed.. Trying again!"
+
+       // عرض factor المجرب
+ document.getElementById("factors").innerHTML = "Tried factor: " + factor; document.getElementById("status").innerHTML = "Exploit failed.. Trying again!"
         location.reload()
         return;
     }
@@ -118,8 +120,7 @@ function trigger(type) {
         unknown_device = true;
     }
 
-    // عرض factor المجرب
-    document.getElementById("factors").innerHTML = "Tried factor: " + factor;
+    
 
     let ref_arr = [];
     for (let i = 0; i < factor; ++i) {
