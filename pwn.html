@@ -96,9 +96,8 @@ function trigger(type) {
         success = true;
     }
     if (!success) {
-
- document.getElementById("status").innerHTML = "Exploit failed.. Trying again!"
  document.getElementById("factors").innerHTML = "Tried factor: " + factor;
+ document.getElementById("status").innerHTML = "Exploit failed.. Trying again!"
         location.reload()
         return;
     }
