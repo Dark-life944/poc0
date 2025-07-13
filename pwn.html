@@ -23,7 +23,7 @@ function logDebug(message) {
 
 function generateLongComment() {
     logDebug("Step 1: Generating long comment...");
-    let length = 100 * 1024 * 1024; // 10 MB of random characters
+    let length = 30 * 1024 * 1024; // 30 MB of random characters
     let commentContent = '';
     for (let i = 0; i < length; i++) {
         commentContent += String.fromCharCode(65 + (Math.random() * 26)); // Random A-Z
